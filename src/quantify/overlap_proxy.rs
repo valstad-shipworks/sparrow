@@ -1,6 +1,6 @@
-use std::f32::consts::PI;
 use jagua_rs::geometry::fail_fast::SPSurrogate;
 use jagua_rs::geometry::geo_traits::DistanceTo;
+use std::f32::consts::PI;
 
 /// Calculates a proxy for the overlap area between two simple polygons (using poles).
 /// Algorithm 3 from https://doi.org/10.48550/arXiv.2509.13329
@@ -22,6 +22,6 @@ pub fn overlap_area_proxy<'a>(sp1: &SPSurrogate, sp2: &SPSurrogate, epsilon: f32
     }
     total_overlap *= PI;
     debug_assert!(total_overlap.is_normal());
-    
+
     total_overlap
 }

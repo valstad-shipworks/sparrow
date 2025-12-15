@@ -1,29 +1,41 @@
 use crate::config::*;
-use crate::optimizer::lbf::LBFBuilder;
-use crate::optimizer::separator::Separator;
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
-use rand::{RngCore, SeedableRng};
-use std::time::Duration;
-use rand_xoshiro::Xoshiro256PlusPlus;
 use crate::consts::LBF_SAMPLE_CONFIG;
 use crate::optimizer::compress::compression_phase;
 use crate::optimizer::explore::exploration_phase;
+use crate::optimizer::lbf::LBFBuilder;
+use crate::optimizer::separator::Separator;
 use crate::util::listener::{ReportType, SolutionListener};
 use crate::util::terminator::Terminator;
+use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use rand::{RngCore, SeedableRng};
+use rand_xoshiro::Xoshiro256PlusPlus;
+use std::time::Duration;
 
+pub mod compress;
+pub mod explore;
 pub mod lbf;
 pub mod separator;
 mod worker;
-pub mod explore;
-pub mod compress;
 
 ///Algorithm 11 from https://doi.org/10.48550/arXiv.2509.13329
-pub fn optimize(instance: SPInstance, mut rng: Xoshiro256PlusPlus, sol_listener: &mut impl SolutionListener, terminator: &mut impl Terminator, expl_config: &ExplorationConfig, cmpr_config: &CompressionConfig) -> SPSolution {
+pub fn optimize(
+    instance: SPInstance,
+    mut rng: Xoshiro256PlusPlus,
+    sol_listener: &mut impl SolutionListener,
+    terminator: &mut impl Terminator,
+    expl_config: &ExplorationConfig,
+    cmpr_config: &CompressionConfig,
+) -> SPSolution {
     let mut next_rng = || Xoshiro256PlusPlus::seed_from_u64(rng.next_u64());
     let builder = LBFBuilder::new(instance.clone(), next_rng(), LBF_SAMPLE_CONFIG).construct();
 
     terminator.new_timeout(expl_config.time_limit);
-    let mut expl_separator = Separator::new(builder.instance, builder.prob, next_rng(), expl_config.separator_config);
+    let mut expl_separator = Separator::new(
+        builder.instance,
+        builder.prob,
+        next_rng(),
+        expl_config.separator_config,
+    );
     let solutions = exploration_phase(
         &instance,
         &mut expl_separator,
@@ -34,7 +46,12 @@ pub fn optimize(instance: SPInstance, mut rng: Xoshiro256PlusPlus, sol_listener:
     let final_explore_sol = solutions.last().unwrap().clone();
 
     terminator.new_timeout(cmpr_config.time_limit);
-    let mut cmpr_separator = Separator::new(expl_separator.instance, expl_separator.prob, next_rng(), cmpr_config.separator_config);
+    let mut cmpr_separator = Separator::new(
+        expl_separator.instance,
+        expl_separator.prob,
+        next_rng(),
+        cmpr_config.separator_config,
+    );
     let cmpr_sol = compression_phase(
         &instance,
         &mut cmpr_separator,

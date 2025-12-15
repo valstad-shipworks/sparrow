@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use crate::quantify::quantify_collision_poly_container;
 #[cfg(not(feature = "simd"))]
 use crate::quantify::quantify_collision_poly_poly;
@@ -17,9 +16,10 @@ use jagua_rs::collision_detection::quadtree::QTHazPresence;
 use jagua_rs::entities::Layout;
 use jagua_rs::entities::PItemKey;
 use jagua_rs::geometry::DTransformation;
-use jagua_rs::geometry::geo_traits::{TransformableFrom};
+use jagua_rs::geometry::geo_traits::TransformableFrom;
 use jagua_rs::geometry::primitives::SPolygon;
 use slotmap::SecondaryMap;
+use std::f32::consts::PI;
 
 /// Functionally identical to [`CDEngine::collect_poly_collisions`], but with early return.
 /// Collision collection will stop as soon as the loss exceeds the `loss_bound` of the detector.
@@ -37,7 +37,6 @@ pub fn collect_poly_collisions_in_detector_custom(
 
     #[cfg(feature = "simd")]
     collector.poles_soa.load(&shape.surrogate().poles);
-    
 
     {
         // We start off by checking a few poles in order to detect obvious collisions quickly and quickly raise the loss.
@@ -47,7 +46,9 @@ pub fn collect_poly_collisions_in_detector_custom(
         let mut area_sum = 0.0;
         for pole in shape.surrogate().poles.iter() {
             cde.quadtree.collect_collisions(pole, collector);
-            if collector.early_terminate(shape) { return; }
+            if collector.early_terminate(shape) {
+                return;
+            }
             area_sum += pole.radius * pole.radius;
             if area_sum > area_threshold {
                 break;
@@ -60,11 +61,12 @@ pub fn collect_poly_collisions_in_detector_custom(
 
     // Collect collisions for each edge of the polygon.
     // Iterate over them in a bit-reversed order to maximize detecting new hazards early.
-    let custom_edge_iter = BitReversalIterator::new(shape.n_vertices())
-        .map(|i| shape.edge(i));
+    let custom_edge_iter = BitReversalIterator::new(shape.n_vertices()).map(|i| shape.edge(i));
     for edge in custom_edge_iter {
         v_quadtree.collect_collisions(&edge, collector);
-        if collector.early_terminate(shape) { return; }
+        if collector.early_terminate(shape) {
+            return;
+        }
     }
 
     // Check if there are any other collisions due to containment
@@ -77,15 +79,20 @@ pub fn collect_poly_collisions_in_detector_custom(
                     let h_shape = &cde.hazards_map[qt_haz.hkey].shape;
                     if cde.detect_containment_collision(shape, h_shape, qt_haz.entity) {
                         collector.insert(qt_haz.hkey, qt_haz.entity);
-                        if collector.early_terminate(shape) { return; }
+                        if collector.early_terminate(shape) {
+                            return;
+                        }
                     }
                 }
             }
         }
     }
-    
+
     // At this point, all collisions should be present in the detector.
-    debug_assert!(assertions::custom_pipeline_matches_jaguars(shape, collector), "Custom pipeline deviates from native jagua-rs pipeline");
+    debug_assert!(
+        assertions::custom_pipeline_matches_jaguars(shape, collector),
+        "Custom pipeline deviates from native jagua-rs pipeline"
+    );
 }
 
 /// Specialized version of [`HazardCollector`]
@@ -105,12 +112,11 @@ pub struct SpecializedHazardCollector<'a> {
 }
 
 impl<'a> SpecializedHazardCollector<'a> {
-    pub fn new(
-        layout: &'a Layout,
-        ct: &'a CollisionTracker,
-        current_pk: PItemKey,
-    ) -> Self {
-        let current_haz_key = layout.cde().haz_key_from_pi_key(current_pk).expect("placed item should be registered in the CDE");
+    pub fn new(layout: &'a Layout, ct: &'a CollisionTracker, current_pk: PItemKey) -> Self {
+        let current_haz_key = layout
+            .cde()
+            .haz_key_from_pi_key(current_pk)
+            .expect("placed item should be registered in the CDE");
         Self {
             layout,
             ct,
@@ -132,7 +138,7 @@ impl<'a> SpecializedHazardCollector<'a> {
         self.loss_bound = loss_bound;
     }
 
-    pub fn iter_with_index(&self) -> impl Iterator<Item=&(HazardEntity, usize)> {
+    pub fn iter_with_index(&self) -> impl Iterator<Item = &(HazardEntity, usize)> {
         self.detected.values()
     }
 
@@ -144,13 +150,20 @@ impl<'a> SpecializedHazardCollector<'a> {
         let (cache_idx, cached_loss) = self.loss_cache;
         if cache_idx < self.idx_counter {
             // additional hazards were detected, update the cache
-            let extra_loss: f32 = self.iter_with_index()
+            let extra_loss: f32 = self
+                .iter_with_index()
                 .filter(|(_, idx)| *idx >= cache_idx)
                 .map(|(h, _)| self.calc_weighted_loss(h, shape))
                 .sum();
             self.loss_cache = (self.idx_counter, cached_loss + extra_loss);
         }
-        debug_assert!(approx_eq!(f32, self.loss_cache.1, self.iter().map(|(_, he)| self.calc_weighted_loss(he, shape)).sum()));
+        debug_assert!(approx_eq!(
+            f32,
+            self.loss_cache.1,
+            self.iter()
+                .map(|(_, he)| self.calc_weighted_loss(he, shape))
+                .sum()
+        ));
         self.loss_cache.1
     }
 
@@ -168,7 +181,8 @@ impl<'a> SpecializedHazardCollector<'a> {
                 loss * weight
             }
             HazardEntity::Exterior => {
-                let loss = quantify_collision_poly_container(shape, self.layout.container.outer_cd.bbox);
+                let loss =
+                    quantify_collision_poly_container(shape, self.layout.container.outer_cd.bbox);
                 let weight = self.ct.get_container_weight(self.current_pk);
                 loss * weight
             }
@@ -187,9 +201,11 @@ impl<'a> HazardCollector for SpecializedHazardCollector<'a> {
         self.detected.insert(hkey, (entity, self.idx_counter));
         self.idx_counter += 1;
     }
-    
+
     fn remove_by_key(&mut self, hkey: HazKey) {
-        let (_, idx) = self.detected.remove(hkey)
+        let (_, idx) = self
+            .detected
+            .remove(hkey)
             .expect("key should be present in the collector");
         if idx < self.loss_cache.0 {
             //wipe the cache if a hazard was removed that was in it
@@ -205,8 +221,7 @@ impl<'a> HazardCollector for SpecializedHazardCollector<'a> {
         self.detected.len()
     }
 
-    fn iter(&self) -> impl Iterator<Item=(HazKey, &HazardEntity)> {
-        self.detected.iter()
-            .map(|(k, (h, _))| (k, h))
+    fn iter(&self) -> impl Iterator<Item = (HazKey, &HazardEntity)> {
+        self.detected.iter().map(|(k, (h, _))| (k, h))
     }
 }

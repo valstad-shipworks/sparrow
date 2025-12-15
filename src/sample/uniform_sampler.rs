@@ -1,15 +1,15 @@
-use std::f32::consts::PI;
 use itertools::Itertools;
+use jagua_rs::entities::Item;
 use jagua_rs::geometry::geo_enums::RotationRange;
 use jagua_rs::geometry::geo_traits::TransformableFrom;
-use rand::prelude::IndexedRandom;
-use rand::Rng;
-use std::ops::Range;
-use jagua_rs::entities::Item;
 use jagua_rs::geometry::primitives::Rect;
-use jagua_rs::geometry::{normalize_rotation, DTransformation, Transformation};
+use jagua_rs::geometry::{DTransformation, Transformation, normalize_rotation};
 use ndarray::Array;
-use ordered_float::{OrderedFloat};
+use ordered_float::OrderedFloat;
+use rand::Rng;
+use rand::prelude::IndexedRandom;
+use std::f32::consts::PI;
+use std::ops::Range;
 
 const ROT_N_SAMPLES: usize = 16; // number of rotations to sample for continuous rotation
 
@@ -45,13 +45,18 @@ impl UniformBBoxSampler {
 
         // for each possible rotation, calculate the sample ranges (x and y)
         // where the item resides fully inside the container and is within the sample bounding box
-        let rot_entries = rotations.iter()
+        let rot_entries = rotations
+            .iter()
             .map(|&r| {
-                let r_shape_bbox = shape_buffer.transform_from(item.shape_cd.as_ref(), &Transformation::from_rotation(r)).bbox;
+                let r_shape_bbox = shape_buffer
+                    .transform_from(item.shape_cd.as_ref(), &Transformation::from_rotation(r))
+                    .bbox;
 
                 //narrow the container range to account for the rotated shape
-                let cont_x_range = (container_bbox.x_min - r_shape_bbox.x_min)..(container_bbox.x_max - r_shape_bbox.x_max);
-                let cont_y_range = (container_bbox.y_min - r_shape_bbox.y_min)..(container_bbox.y_max - r_shape_bbox.y_max);
+                let cont_x_range = (container_bbox.x_min - r_shape_bbox.x_min)
+                    ..(container_bbox.x_max - r_shape_bbox.x_max);
+                let cont_y_range = (container_bbox.y_min - r_shape_bbox.y_min)
+                    ..(container_bbox.y_max - r_shape_bbox.y_max);
 
                 //intersect with the sample bbox
                 let x_range = intersect_range(&cont_x_range, &sample_x_range);
@@ -61,9 +66,15 @@ impl UniformBBoxSampler {
                 if x_range.is_empty() || y_range.is_empty() {
                     None
                 } else {
-                    Some(RotEntry { r, x_range, y_range })
+                    Some(RotEntry {
+                        r,
+                        x_range,
+                        y_range,
+                    })
                 }
-            }).flatten().collect_vec();
+            })
+            .flatten()
+            .collect_vec();
 
         match rot_entries.is_empty() {
             true => None,
@@ -96,11 +107,14 @@ pub fn convert_sample_to_closest_feasible(dt: DTransformation, item: &Item) -> D
         RotationRange::None => 0.0,
         RotationRange::Discrete(v) => {
             // find the closest rotation in the discrete set
-            v.iter().min_by_key(|&&r| {
-                // make sure to normalize the delta to the range [-PI, PI]
-                let norm_delta = normalize_rotation(dt.rotation() - r);
-                OrderedFloat(norm_delta.abs())
-            }).cloned().unwrap()
+            v.iter()
+                .min_by_key(|&&r| {
+                    // make sure to normalize the delta to the range [-PI, PI]
+                    let norm_delta = normalize_rotation(dt.rotation() - r);
+                    OrderedFloat(norm_delta.abs())
+                })
+                .cloned()
+                .unwrap()
         }
         RotationRange::Continuous => {
             // for continuous rotation, we can just use the sample rotation

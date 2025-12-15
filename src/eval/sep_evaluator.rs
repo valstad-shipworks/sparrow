@@ -1,7 +1,9 @@
-use jagua_rs::collision_detection::hazards::collector::HazardCollector;
 use crate::eval::sample_eval::{SampleEval, SampleEvaluator};
-use crate::eval::specialized_jaguars_pipeline::{collect_poly_collisions_in_detector_custom, SpecializedHazardCollector};
+use crate::eval::specialized_jaguars_pipeline::{
+    SpecializedHazardCollector, collect_poly_collisions_in_detector_custom,
+};
 use crate::quantify::tracker::CollisionTracker;
+use jagua_rs::collision_detection::hazards::collector::HazardCollector;
 use jagua_rs::entities::Item;
 use jagua_rs::entities::Layout;
 use jagua_rs::entities::PItemKey;
@@ -38,7 +40,11 @@ impl<'a> SeparationEvaluator<'a> {
 impl<'a> SampleEvaluator for SeparationEvaluator<'a> {
     /// Evaluates a transformation. An upper bound can be provided to early terminate the process.
     /// Algorithm 7 from https://doi.org/10.48550/arXiv.2509.13329
-    fn evaluate_sample(&mut self, dt: DTransformation, upper_bound: Option<SampleEval>) -> SampleEval {
+    fn evaluate_sample(
+        &mut self,
+        dt: DTransformation,
+        upper_bound: Option<SampleEval>,
+    ) -> SampleEval {
         self.n_evals += 1;
         let cde = self.layout.cde();
 
@@ -52,7 +58,13 @@ impl<'a> SampleEvaluator for SeparationEvaluator<'a> {
         self.collector.reload(loss_bound);
 
         //query the CDE, all colliding hazards will be stored in the detection map
-        collect_poly_collisions_in_detector_custom(cde, &dt, &mut self.shape_buff, self.item.shape_cd.as_ref(), &mut self.collector);
+        collect_poly_collisions_in_detector_custom(
+            cde,
+            &dt,
+            &mut self.shape_buff,
+            self.item.shape_cd.as_ref(),
+            &mut self.collector,
+        );
 
         if self.collector.early_terminate(&self.shape_buff) {
             //the detection map is in early termination state, this means potentially not all collisions were detected,
@@ -71,4 +83,3 @@ impl<'a> SampleEvaluator for SeparationEvaluator<'a> {
         self.n_evals
     }
 }
-

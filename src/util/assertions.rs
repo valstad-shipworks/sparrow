@@ -3,15 +3,15 @@ use crate::quantify::tracker::CollisionTracker;
 use crate::quantify::{quantify_collision_poly_container, quantify_collision_poly_poly};
 use float_cmp::{approx_eq, assert_approx_eq};
 use itertools::Itertools;
-use jagua_rs::util::assertions;
-use log::warn;
-use std::collections::HashSet;
-use jagua_rs::collision_detection::hazards::collector::{BasicHazardCollector, HazardCollector};
 use jagua_rs::collision_detection::hazards::HazardEntity;
+use jagua_rs::collision_detection::hazards::collector::{BasicHazardCollector, HazardCollector};
 use jagua_rs::entities::Layout;
 use jagua_rs::geometry::primitives::SPolygon;
 use jagua_rs::io::svg::SvgDrawOptions;
 use jagua_rs::probs::spp::entities::SPProblem;
+use jagua_rs::util::assertions;
+use log::warn;
+use std::collections::HashSet;
 
 pub fn tracker_matches_layout(ct: &CollisionTracker, l: &Layout) -> bool {
     assert!(l.placed_items.keys().all(|k| ct.pk_idx_map.contains_key(k)));
@@ -24,13 +24,19 @@ pub fn tracker_matches_layout(ct: &CollisionTracker, l: &Layout) -> bool {
         assert_eq!(ct.get_pair_loss(pk1, pk1), 0.0);
         for (pk2, pi2) in l.placed_items.iter().filter(|(k, _)| *k != pk1) {
             let stored_loss = ct.get_pair_loss(pk1, pk2);
-            match collector.iter().any(|(_, he)| he == &HazardEntity::from((pk2, pi2))) {
+            match collector
+                .iter()
+                .any(|(_, he)| he == &HazardEntity::from((pk2, pi2)))
+            {
                 true => {
                     let calc_loss = quantify_collision_poly_poly(&pi1.shape, &pi2.shape);
                     let calc_loss_r = quantify_collision_poly_poly(&pi2.shape, &pi1.shape);
-                    if !approx_eq!(f32,calc_loss,stored_loss,epsilon = 0.10 * stored_loss) && !approx_eq!(f32,calc_loss_r,stored_loss, epsilon = 0.10 * stored_loss) {
+                    if !approx_eq!(f32, calc_loss, stored_loss, epsilon = 0.10 * stored_loss)
+                        && !approx_eq!(f32, calc_loss_r, stored_loss, epsilon = 0.10 * stored_loss)
+                    {
                         let mut opp_collector = BasicHazardCollector::new();
-                        l.cde().collect_poly_collisions(&pi2.shape, &mut opp_collector);
+                        l.cde()
+                            .collect_poly_collisions(&pi2.shape, &mut opp_collector);
                         opp_collector.remove_by_entity(&HazardEntity::from((pk2, pi2)));
                         if opp_collector.contains_entity(&((pk1, pi1).into())) {
                             dbg!(&pi1.shape.vertices, &pi2.shape.vertices);
@@ -81,7 +87,8 @@ pub fn tracker_matches_layout(ct: &CollisionTracker, l: &Layout) -> bool {
                     if stored_loss != 0.0 {
                         let calc_loss = quantify_collision_poly_poly(&pi1.shape, &pi2.shape);
                         let mut opp_collector = BasicHazardCollector::new();
-                        l.cde().collect_poly_collisions(&pi2.shape, &mut opp_collector);
+                        l.cde()
+                            .collect_poly_collisions(&pi2.shape, &mut opp_collector);
                         opp_collector.remove_by_entity(&HazardEntity::from((pk2, pi2)));
                         if !opp_collector.contains_entity(&HazardEntity::from((pk1, pi1))) {
                             dbg!(&pi1.shape.vertices, &pi2.shape.vertices);
@@ -113,7 +120,8 @@ pub fn tracker_matches_layout(ct: &CollisionTracker, l: &Layout) -> bool {
         }
         if collector.contains_entity(&HazardEntity::Exterior) {
             let stored_loss = ct.get_container_loss(pk1);
-            let calc_loss = quantify_collision_poly_container(&pi1.shape, l.container.outer_cd.bbox);
+            let calc_loss =
+                quantify_collision_poly_container(&pi1.shape, l.container.outer_cd.bbox);
             assert_approx_eq!(f32, stored_loss, calc_loss, ulps = 5);
         } else {
             assert_eq!(ct.get_container_loss(pk1), 0.0);
@@ -131,7 +139,7 @@ pub fn custom_pipeline_matches_jaguars(shape: &SPolygon, det: &SpecializedHazard
         let pk = det.current_pk;
         let mut coll = BasicHazardCollector::new();
         cde.collect_poly_collisions(shape, &mut coll);
-        if coll.contains_entity(&HazardEntity::from((pk, pi))){
+        if coll.contains_entity(&HazardEntity::from((pk, pi))) {
             coll.remove_by_entity(&HazardEntity::from((pk, pi)));
         }
         coll
@@ -141,14 +149,21 @@ pub fn custom_pipeline_matches_jaguars(shape: &SPolygon, det: &SpecializedHazard
     let default_set: HashSet<HazardEntity> = base_detector.entities().cloned().collect();
     let custom_set: HashSet<HazardEntity> = det.entities().cloned().collect();
 
-    assert_eq!(default_set, custom_set, "custom cde pipeline does not match jagua-rs! for pk: {:?}", det.current_pk);
+    assert_eq!(
+        default_set, custom_set,
+        "custom cde pipeline does not match jagua-rs! for pk: {:?}",
+        det.current_pk
+    );
     true
 }
 
 pub fn strip_width_is_in_check(prob: &SPProblem) -> bool {
-    let diameters_of_all_items = prob.instance.items.iter().map(
-        |(i,q)| i.shape_cd.diameter * *q as f32
-    ).sum::<f32>();
-    
+    let diameters_of_all_items = prob
+        .instance
+        .items
+        .iter()
+        .map(|(i, q)| i.shape_cd.diameter * *q as f32)
+        .sum::<f32>();
+
     prob.strip_width() < 2.0 * (diameters_of_all_items)
 }

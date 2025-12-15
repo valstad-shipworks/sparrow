@@ -1,9 +1,9 @@
+use crate::util::terminator::Terminator;
+use jagua_rs::Instant;
+use log::warn;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use jagua_rs::Instant;
-use log::warn;
-use crate::util::terminator::Terminator;
 
 #[derive(Debug, Clone)]
 pub struct CtrlCTerminator {
@@ -20,7 +20,8 @@ impl CtrlCTerminator {
         ctrlc::set_handler(move || {
             warn!(" terminating...");
             c.store(true, Ordering::SeqCst);
-        }).expect("Error setting Ctrl-C handler");
+        })
+        .expect("Error setting Ctrl-C handler");
 
         Self {
             timeout: None,
@@ -31,11 +32,12 @@ impl CtrlCTerminator {
 
 impl Terminator for CtrlCTerminator {
     fn kill(&self) -> bool {
-        self.timeout.map_or(false, |timeout| Instant::now() > timeout)
+        self.timeout
+            .map_or(false, |timeout| Instant::now() > timeout)
             || self.ctrlc.load(Ordering::SeqCst)
     }
 
-    fn new_timeout(&mut self, timeout: Duration){
+    fn new_timeout(&mut self, timeout: Duration) {
         // Reset the Ctrl-C flag and set a new timeout
         self.ctrlc.store(false, Ordering::SeqCst);
         self.timeout = Some(Instant::now() + timeout);

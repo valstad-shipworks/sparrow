@@ -1,5 +1,5 @@
-use std::time::Duration;
 use jagua_rs::Instant;
+use std::time::Duration;
 
 /// Generic trait for any struct that can determine if the optimization process should terminate.
 pub trait Terminator {
@@ -26,10 +26,11 @@ impl BasicTerminator {
 
 impl Terminator for BasicTerminator {
     fn kill(&self) -> bool {
-        self.timeout.map_or(false, |timeout| Instant::now() > timeout)
+        self.timeout
+            .map_or(false, |timeout| Instant::now() > timeout)
     }
 
-    fn new_timeout(&mut self, timeout: Duration){
+    fn new_timeout(&mut self, timeout: Duration) {
         self.timeout = Some(Instant::now() + timeout);
     }
 
