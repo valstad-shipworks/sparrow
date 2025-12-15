@@ -5,7 +5,7 @@ use crate::optimizer::explore::exploration_phase;
 use crate::optimizer::lbf::LBFBuilder;
 use crate::optimizer::separator::Separator;
 use crate::util::listener::{ReportType, SolutionListener};
-use crate::util::terminator::Terminator;
+use crate::util::terminator::{CombinedTerminator, Terminator, TimedTerminator};
 use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
@@ -22,14 +22,17 @@ pub fn optimize(
     instance: SPInstance,
     mut rng: Xoshiro256PlusPlus,
     sol_listener: &mut impl SolutionListener,
-    terminator: &mut impl Terminator,
+    terminator: &impl Terminator,
     expl_config: &ExplorationConfig,
     cmpr_config: &CompressionConfig,
 ) -> SPSolution {
     let mut next_rng = || Xoshiro256PlusPlus::seed_from_u64(rng.next_u64());
     let builder = LBFBuilder::new(instance.clone(), next_rng(), LBF_SAMPLE_CONFIG).construct();
 
-    terminator.new_timeout(expl_config.time_limit);
+    let expl_term = CombinedTerminator::new(
+        terminator.clone(),
+        TimedTerminator::new_duration(expl_config.time_limit),
+    );
     let mut expl_separator = Separator::new(
         builder.instance,
         builder.prob,
@@ -40,12 +43,15 @@ pub fn optimize(
         &instance,
         &mut expl_separator,
         sol_listener,
-        terminator,
+        &expl_term,
         expl_config,
     );
     let final_explore_sol = solutions.last().unwrap().clone();
 
-    terminator.new_timeout(cmpr_config.time_limit);
+    let cmpr_term = CombinedTerminator::new(
+        terminator.clone(),
+        TimedTerminator::new_duration(cmpr_config.time_limit),
+    );
     let mut cmpr_separator = Separator::new(
         expl_separator.instance,
         expl_separator.prob,
@@ -57,7 +63,7 @@ pub fn optimize(
         &mut cmpr_separator,
         &final_explore_sol,
         sol_listener,
-        terminator,
+        &cmpr_term,
         cmpr_config,
     );
 

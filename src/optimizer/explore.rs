@@ -1,4 +1,3 @@
-use crate::FMT;
 use crate::config::ExplorationConfig;
 use crate::optimizer::separator::{Separator, SeparatorConfig};
 use crate::sample::uniform_sampler::convert_sample_to_closest_feasible;
@@ -39,7 +38,7 @@ pub fn exploration_phase(
 
     let mut solution_pool: Vec<(SPSolution, f32)> = vec![];
 
-    while !term.kill() {
+    while !term.should_terminate() {
         let local_best = sep.separate(term, sol_listener);
         let total_loss = local_best.1.get_total_loss();
 
@@ -70,7 +69,7 @@ pub fn exploration_phase(
                 "[EXPL] unable to reach feasibility (width: {:.3}, dens: {:.3}%, min loss: {:.3})",
                 current_width,
                 sep.prob.density() * 100.0,
-                FMT().fmt2(total_loss)
+                total_loss
             );
             sol_listener.report(ReportType::ExplInfeas, &local_best.0, instance);
 
@@ -100,7 +99,7 @@ pub fn exploration_phase(
                     "[EXPL] starting solution {}/{} selected from solution pool (l: {}) to disrupt",
                     selected_idx,
                     solution_pool.len(),
-                    FMT().fmt2(*loss)
+                    *loss
                 );
                 selected_sol
             };

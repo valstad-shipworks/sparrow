@@ -33,7 +33,7 @@ pub fn compression_phase(
             }
         }
     };
-    while !term.kill()
+    while !term.should_terminate()
         && let step = shrink_step_size(n_failed_attempts)
         && step >= config.shrink_range.1
     {

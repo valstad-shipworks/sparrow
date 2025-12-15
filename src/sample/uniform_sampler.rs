@@ -4,7 +4,6 @@ use jagua_rs::geometry::geo_enums::RotationRange;
 use jagua_rs::geometry::geo_traits::TransformableFrom;
 use jagua_rs::geometry::primitives::Rect;
 use jagua_rs::geometry::{DTransformation, Transformation, normalize_rotation};
-use ndarray::Array;
 use ordered_float::OrderedFloat;
 use rand::Rng;
 use rand::prelude::IndexedRandom;
@@ -12,6 +11,11 @@ use std::f32::consts::PI;
 use std::ops::Range;
 
 const ROT_N_SAMPLES: usize = 16; // number of rotations to sample for continuous rotation
+
+fn linspace(start: f32, end: f32, n: usize) -> Vec<f32> {
+    let step = (end - start) / (n - 1) as f32;
+    (0..n).map(|i| start + i as f32 * step).collect()
+}
 
 /// A sampler that creates uniform samples for an item within a bounding box
 #[derive(Clone, Debug)]
@@ -34,7 +38,7 @@ impl UniformBBoxSampler {
             RotationRange::Discrete(r) => r,
             RotationRange::Continuous => {
                 // for continuous rotation, we sample a set of rotations spaced evenly
-                &Array::linspace(0.0, 2.0 * PI, ROT_N_SAMPLES).to_vec()
+                &linspace(0.0, 2.0 * PI, ROT_N_SAMPLES)
             }
         };
 

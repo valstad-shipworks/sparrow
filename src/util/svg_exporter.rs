@@ -1,9 +1,11 @@
 use crate::consts::DRAW_OPTIONS;
-use crate::util::io;
 use crate::util::listener::{ReportType, SolutionListener};
+use anyhow::{Context, Result};
 use jagua_rs::io::svg::s_layout_to_svg;
 use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
-use log::Level;
+use log::{Level, log};
+use svg::Document;
+use std::fs;
 use std::path::Path;
 pub struct SvgExporter {
     svg_counter: usize,
@@ -41,6 +43,23 @@ impl SvgExporter {
     }
 }
 
+pub fn write_svg(document: &Document, path: &Path, log_lvl: Level) -> Result<()> {
+    //make sure the parent directory exists
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).context("could not create parent directory for svg file")?;
+    }
+    svg::save(path, document)?;
+    log!(
+        log_lvl,
+        "[IO] svg exported to file://{}",
+        fs::canonicalize(&path)
+            .expect("could not canonicalize path")
+            .to_str()
+            .unwrap()
+    );
+    Ok(())
+}
+
 impl SolutionListener for SvgExporter {
     fn report(&mut self, report_type: ReportType, solution: &SPSolution, instance: &SPInstance) {
         let suffix = match report_type {
@@ -63,7 +82,7 @@ impl SolutionListener for SvgExporter {
                 DRAW_OPTIONS,
                 &file_name.as_str(),
             );
-            io::write_svg(&svg, Path::new(live_path), Level::Trace)
+            write_svg(&svg, Path::new(live_path), Level::Trace)
                 .expect("failed to write live svg");
         }
         if let Some(intermediate_dir) = &self.intermediate_dir
@@ -76,7 +95,7 @@ impl SolutionListener for SvgExporter {
                 file_name.as_str(),
             );
             let file_path = &*format!("{intermediate_dir}/{file_name}.svg");
-            io::write_svg(&svg, Path::new(file_path), Level::Trace)
+            write_svg(&svg, Path::new(file_path), Level::Trace)
                 .expect("failed to write intermediate svg");
             self.svg_counter += 1;
         }
@@ -90,7 +109,7 @@ impl SolutionListener for SvgExporter {
                 DRAW_OPTIONS,
                 stem.to_str().unwrap(),
             );
-            io::write_svg(&svg, Path::new(final_path), Level::Info)
+            write_svg(&svg, Path::new(final_path), Level::Info)
                 .expect("failed to write final svg");
         }
     }

@@ -1,4 +1,3 @@
-use crate::FMT;
 use crate::optimizer::Terminator;
 use crate::optimizer::worker::{SepStats, SeparatorWorker};
 use crate::quantify::tracker::{CTSnapshot, CollisionTracker};
@@ -91,7 +90,7 @@ impl Separator {
             self.config.log_level,
             "[SEP] separating at width: {:.3} and loss: {} ",
             self.prob.strip_width(),
-            FMT().fmt2(min_loss)
+            min_loss
         );
 
         let mut n_strikes = 0;
@@ -102,13 +101,13 @@ impl Separator {
         };
         let start = Instant::now();
 
-        'outer: while n_strikes < self.config.strike_limit && !term.kill() {
+        'outer: while n_strikes < self.config.strike_limit && !term.should_terminate() {
             let mut n_iter_no_improvement = 0;
 
             let initial_strike_loss = self.ct.get_total_loss();
             debug!(
                 "[SEP] [s:{n_strikes},i:{n_iter}]     init_l: {}",
-                FMT().fmt2(initial_strike_loss)
+                initial_strike_loss
             );
 
             while n_iter_no_improvement < self.config.iter_no_imprv_limit {
@@ -119,17 +118,17 @@ impl Separator {
 
                 debug!(
                     "[SEP] [s:{n_strikes},i:{n_iter}] ( ) l: {} -> {}, wl: {} -> {}, (min l: {})",
-                    FMT().fmt2(loss_before),
-                    FMT().fmt2(loss),
-                    FMT().fmt2(w_loss_before),
-                    FMT().fmt2(w_loss),
-                    FMT().fmt2(min_loss)
+                    loss_before,
+                    loss,
+                    w_loss_before,
+                    w_loss,
+                    min_loss
                 );
                 debug_assert!(
                     w_loss <= w_loss_before * 1.001,
                     "weighted loss should not increase: {} -> {}",
-                    FMT().fmt2(w_loss),
-                    FMT().fmt2(w_loss_before)
+                    w_loss,
+                    w_loss_before
                 );
 
                 if loss == 0.0 {
@@ -137,7 +136,7 @@ impl Separator {
                     log!(
                         self.config.log_level,
                         "[SEP] [s:{n_strikes},i:{n_iter}] (S)  min_l: {}",
-                        FMT().fmt2(loss)
+                        loss
                     );
                     min_loss_sol = (self.prob.save(), self.ct.save());
                     break 'outer;
@@ -146,7 +145,7 @@ impl Separator {
                     log!(
                         self.config.log_level,
                         "[SEP] [s:{n_strikes},i:{n_iter}] (*) min_l: {}",
-                        FMT().fmt2(loss)
+                        loss
                     );
                     sol_listener.report(
                         ReportType::ExplImproving,
@@ -179,11 +178,11 @@ impl Separator {
             self.config.log_level,
             "[SEP] finished, evals/s: {} K, evals/move: {}, moves/s: {}, iter/s: {}, #workers: {}, total {:.3}s",
             (sep_stats.total_evals as f32 / (1000.0 * secs)) as usize,
-            FMT().fmt2(sep_stats.total_evals as f32 / sep_stats.total_moves as f32),
-            FMT().fmt2(sep_stats.total_moves as f32 / secs),
-            FMT().fmt2(n_iter as f32 / secs),
+            sep_stats.total_evals as f32 / sep_stats.total_moves as f32,
+            sep_stats.total_moves as f32 / secs,
+            n_iter as f32 / secs,
             self.workers.len(),
-            FMT().fmt2(secs),
+            secs,
         );
 
         (min_loss_sol.0, min_loss_sol.1)
@@ -271,10 +270,10 @@ impl Separator {
         debug!(
             "[MV] moved item {} from from l: {}, wl: {} to l+1: {}, wl+1: {}",
             item_id,
-            FMT().fmt2(old_loss),
-            FMT().fmt2(old_weighted_loss),
-            FMT().fmt2(new_loss),
-            FMT().fmt2(new_weighted_loss)
+            old_loss,
+            old_weighted_loss,
+            new_loss,
+            new_weighted_loss
         );
 
         debug_assert!(tracker_matches_layout(&self.ct, &self.prob.layout));

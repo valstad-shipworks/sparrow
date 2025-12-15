@@ -1,4 +1,3 @@
-use crate::FMT;
 use crate::eval::sep_evaluator::SeparationEvaluator;
 use crate::quantify::tracker::CollisionTracker;
 use crate::sample::search;
@@ -94,13 +93,13 @@ impl SeparatorWorker {
             old_l > 0.0,
             "Item with key {:?} should be colliding, but has no loss: {}",
             pk,
-            FMT().fmt2(old_l)
+            old_l
         );
         debug_assert!(
             old_w_l > 0.0,
             "Item with key {:?} should be colliding, but has no weighted loss: {}",
             pk,
-            FMT().fmt2(old_w_l)
+            old_w_l
         );
 
         //modify the problem, by removing the item and placing it in the new position
@@ -118,17 +117,17 @@ impl SeparatorWorker {
         debug!(
             "Moved {:?} (l: {}, wl: {}) to {:?} (l+1: {}, wl+1: {})",
             old_placement,
-            FMT().fmt2(old_l),
-            FMT().fmt2(old_w_l),
+            old_l,
+            old_w_l,
             new_placement,
-            FMT().fmt2(new_l),
-            FMT().fmt2(new_w_l)
+            new_l,
+            new_w_l
         );
         debug_assert!(
             new_w_l <= old_w_l * 1.001,
             "weighted loss should never increase: {} > {}",
-            FMT().fmt2(old_w_l),
-            FMT().fmt2(new_w_l)
+            old_w_l,
+            new_w_l
         );
         debug_assert!(tracker_matches_layout(&self.ct, &self.prob.layout));
 

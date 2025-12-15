@@ -1,40 +1,75 @@
 use jagua_rs::Instant;
-use std::time::Duration;
+use std::{
+    sync::{Arc, atomic::AtomicBool},
+    time::Duration,
+};
 
 /// Generic trait for any struct that can determine if the optimization process should terminate.
-pub trait Terminator {
+pub trait Terminator: Clone {
     /// Checks if the termination condition is met
-    fn kill(&self) -> bool;
-
-    /// Sets a new timeout duration
-    fn new_timeout(&mut self, timeout: Duration);
-
-    /// Returns the instant when a timeout was set, if any
-    fn timeout_at(&self) -> Option<Instant>;
+    fn should_terminate(&self) -> bool;
 }
 
 #[derive(Debug, Clone)]
-pub struct BasicTerminator {
-    pub timeout: Option<Instant>,
+pub struct TimedTerminator {
+    timeout: Instant,
 }
 
-impl BasicTerminator {
+impl TimedTerminator {
+    pub fn new_duration(timeout: Duration) -> Self {
+        Self {
+            timeout: Instant::now() + timeout,
+        }
+    }
+
+    pub fn new_instant(timeout: Instant) -> Self {
+        Self { timeout }
+    }
+}
+
+impl Terminator for TimedTerminator {
+    fn should_terminate(&self) -> bool {
+        Instant::now() > self.timeout
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FlagTerminator {
+    flag: Arc<AtomicBool>,
+}
+
+impl FlagTerminator {
     pub fn new() -> Self {
-        Self { timeout: None }
+        Self { flag: Arc::new(AtomicBool::new(false)) }
     }
 }
 
-impl Terminator for BasicTerminator {
-    fn kill(&self) -> bool {
-        self.timeout
-            .map_or(false, |timeout| Instant::now() > timeout)
+impl Terminator for FlagTerminator {
+    fn should_terminate(&self) -> bool {
+        self.flag.load(std::sync::atomic::Ordering::Relaxed)
     }
+}
 
-    fn new_timeout(&mut self, timeout: Duration) {
-        self.timeout = Some(Instant::now() + timeout);
+impl Default for FlagTerminator {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    fn timeout_at(&self) -> Option<Instant> {
-        self.timeout
+#[derive(Debug, Clone)]
+pub struct CombinedTerminator<T1: Terminator, T2: Terminator> {
+    term1: T1,
+    term2: T2,
+}
+
+impl<T1: Terminator, T2: Terminator> CombinedTerminator<T1, T2> {
+    pub fn new(term1: T1, term2: T2) -> Self {
+        Self { term1, term2 }
+    }
+}
+
+impl<T1: Terminator, T2: Terminator> Terminator for CombinedTerminator<T1, T2> {
+    fn should_terminate(&self) -> bool {
+        self.term1.should_terminate() || self.term2.should_terminate()
     }
 }

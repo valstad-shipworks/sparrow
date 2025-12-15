@@ -20,9 +20,9 @@ pub enum ReportType {
 }
 
 /// A dummy implementation of the `SolutionListener` trait that does nothing.
-pub struct DummySolListener;
+pub struct NullSolListener;
 
-impl SolutionListener for DummySolListener {
+impl SolutionListener for NullSolListener {
     fn report(&mut self, _report: ReportType, _solution: &SPSolution, _instance: &SPInstance) {
         // Do nothing
     }
