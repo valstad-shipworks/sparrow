@@ -118,7 +118,7 @@ pub fn convert_sample_to_closest_feasible(dt: DTransformation, item: &Item) -> D
                     OrderedFloat(norm_delta.abs())
                 })
                 .cloned()
-                .unwrap()
+                .unwrap_or(0.0)
         }
         RotationRange::Continuous => {
             // for continuous rotation, we can just use the sample rotation

@@ -55,7 +55,7 @@ pub fn write_svg(document: &Document, path: &Path, log_lvl: Level) -> Result<()>
         fs::canonicalize(&path)
             .expect("could not canonicalize path")
             .to_str()
-            .unwrap()
+            .context("could not convert path to str")?
     );
     Ok(())
 }

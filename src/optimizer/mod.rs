@@ -5,10 +5,13 @@ use crate::optimizer::explore::exploration_phase;
 use crate::optimizer::lbf::LBFBuilder;
 use crate::optimizer::separator::Separator;
 use crate::util::listener::{ReportType, SolutionListener};
-use crate::util::terminator::{CombinedTerminator, Terminator, TimedTerminator};
+use crate::util::terminator::{CombinedTerminator, FlagTerminator, Terminator, TimedTerminator};
+use event_listener::{Event, Listener};
 use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
 use rand::{RngCore, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 pub mod compress;
@@ -70,4 +73,92 @@ pub fn optimize(
     sol_listener.report(ReportType::Final, &cmpr_sol, &instance);
 
     cmpr_sol
+}
+
+#[derive(Debug)]
+pub struct OptimizeWorker {
+    terminate_flag: Arc<AtomicBool>,
+    waiter: Arc<Event>,
+    result: Arc<Mutex<Option<SPSolution>>>,
+    _thread: std::thread::JoinHandle<()>,
+}
+
+impl OptimizeWorker {
+    pub fn new(
+        instance: SPInstance,
+        rng: Xoshiro256PlusPlus,
+        sol_listener: impl SolutionListener + Send + Sync + 'static ,
+        terminator: impl Terminator + Send + Sync + 'static ,
+        expl_config: ExplorationConfig,
+        cmpr_config: CompressionConfig,
+    ) -> Self {
+        let terminate_flag = Arc::new(AtomicBool::new(false));
+        let waiter = Arc::new(Event::new());
+        let thread_waiter = waiter.clone();
+        let result = Arc::new(Mutex::new(None));
+        let thread_result = result.clone();
+
+        let terminator = CombinedTerminator::new(
+            terminator,
+            FlagTerminator::of(terminate_flag.clone()),
+        );
+
+        let thread = std::thread::spawn(move || {
+            let mut local_listener = sol_listener;
+            let local_terminator = terminator;
+
+            let solution = optimize(
+                instance,
+                rng,
+                &mut local_listener,
+                &local_terminator,
+                &expl_config,
+                &cmpr_config,
+            );
+
+            thread_waiter.notify(usize::MAX);
+            *thread_result.lock().expect("OptimizeWorker mutex was poisoned") = Some(solution);
+        });
+
+        OptimizeWorker {
+            terminate_flag,
+            waiter,
+            result,
+            _thread: thread,
+        }
+    }
+
+    fn pull_result(&self) -> Option<SPSolution> {
+        self.result
+            .lock()
+            .expect("OptimizeWorker mutex was poisoned")
+            .take()
+    }
+
+    pub fn wait(&self) -> Option<SPSolution> {
+        if let Some(sol) = self.pull_result() {
+            return Some(sol);
+        }
+        let _ = self.waiter.listen().wait();
+        self.result
+            .lock()
+            .expect("OptimizeWorker mutex was poisoned")
+            .take()
+    }
+
+    pub fn wait_timeout(&self, duration: Duration) -> Option<SPSolution> {
+        if let Some(sol) = self.pull_result() {
+            return Some(sol);
+        }
+        let listener = self.waiter.listen();
+        if listener.wait_timeout(duration).is_some() {
+            self.pull_result()
+        } else {
+            None
+        }
+    }
+
+    pub fn terminate(&self) {
+        self.terminate_flag.store(true, Ordering::Relaxed);
+    }
 }

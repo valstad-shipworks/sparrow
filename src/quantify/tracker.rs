@@ -111,9 +111,13 @@ impl CollisionTracker {
     }
 
     pub fn register_item_move(&mut self, l: &Layout, old_pk: PItemKey, new_pk: PItemKey) {
-        //swap the keys in the pk_idx_map
-        let idx = self.pk_idx_map.remove(old_pk).unwrap();
-        self.pk_idx_map.insert(new_pk, idx);
+        if let Some(idx) = self.pk_idx_map.remove(old_pk) {
+            self.pk_idx_map.insert(new_pk, idx);
+        } else if cfg!(debug_assertions) {
+            panic!("old_pk not found in pk_idx_map");
+        } else {
+            return;
+        }
 
         self.recompute_loss_for_item(new_pk, l);
 

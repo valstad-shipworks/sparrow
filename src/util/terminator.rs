@@ -42,6 +42,10 @@ impl FlagTerminator {
     pub fn new() -> Self {
         Self { flag: Arc::new(AtomicBool::new(false)) }
     }
+
+    pub fn of(flag: Arc<AtomicBool>) -> Self {
+        Self { flag }
+    }
 }
 
 impl Terminator for FlagTerminator {
